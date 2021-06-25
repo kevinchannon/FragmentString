@@ -93,7 +93,8 @@ const char* GetString() { return "FOO!"; }
 
 const char* DangerString( const std::string& str )
 {
-	return str.c_str();
+	static auto local_str = std::string( str );
+	return local_str.c_str();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -113,11 +114,11 @@ int main()
 	auto str4 = FragmentString( "The string function returns: " ) + GetString();
 	std::cout << str4 << std::endl;
 
-	auto dangerStr = FragmentString( "What about this danger? " );
-	{
-		auto s = std::string( "What about this danger? " );
+	auto str5 = FragmentString( "What about this danger? " );
+	auto s = std::string( "BOO!" );
+	auto dangerStr = str5 + DangerString( s );
 
-	}
+	std::cout << dangerStr << std::endl;
 
 	auto wstr = FragmentWString( L"... and now a wiiiide string" );
 	std::wcout << wstr << std::endl;
