@@ -4,6 +4,8 @@
 #include <sstream>
 #include <iterator>
 #include <algorithm>
+#include <string_view>
+#include <numeric>
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -11,42 +13,55 @@ template<typename Char_T, size_t FRAGMENT_COUNT = 1>
 class BasicFragmentString
 {
 public:
-	using Array_T = std::array<const Char_T*, FRAGMENT_COUNT>;
+	using Char_t = Char_T;
+	using Str_t = std::basic_string_view<Char_t>;
+	using Array_t = std::array<Str_t, FRAGMENT_COUNT>;
+	using This_t = BasicFragmentString<Char_t, FRAGMENT_COUNT>;
 
-	BasicFragmentString( const Char_T* psz )
-		: m_fragments{ psz }
+	BasicFragmentString( Str_t str )
+		: m_fragments{ str }
 	{
 	}
 
-	BasicFragmentString( const BasicFragmentString<Char_T, FRAGMENT_COUNT>& ) = default;
-	BasicFragmentString( BasicFragmentString<Char_T, FRAGMENT_COUNT>&& ) = default;
-	BasicFragmentString<Char_T, FRAGMENT_COUNT>& operator=( const BasicFragmentString<Char_T, FRAGMENT_COUNT>& ) = default;
-	BasicFragmentString<Char_T, FRAGMENT_COUNT>& operator=( BasicFragmentString<Char_T, FRAGMENT_COUNT>&& ) = default;
+	BasicFragmentString( const This_t& ) = default;
+	BasicFragmentString( This_t&& ) = default;
+	This_t& operator=( const This_t& ) = default;
+	This_t& operator=( This_t&& ) = default;
 
 	template<size_t STR_LEN>
-	BasicFragmentString( const Char_T psz[STR_LEN] )
+	BasicFragmentString( const Char_t psz[STR_LEN] )
 		: m_fragments( psz )
 	{
 	}
 
 	template<size_t LEFT_FRAG_COUNT, size_t RIGHT_FRAG_COUNT>
-	BasicFragmentString( const BasicFragmentString<Char_T, LEFT_FRAG_COUNT>& left, const BasicFragmentString<Char_T, RIGHT_FRAG_COUNT>& right )
+	BasicFragmentString( const BasicFragmentString<Char_t, LEFT_FRAG_COUNT>& left, const BasicFragmentString<Char_t, RIGHT_FRAG_COUNT>& right )
 	{
-		std::copy( left.Fragments().cbegin(), left.Fragments().cend(), m_fragments.begin() );
-		std::copy( right.Fragments().cbegin(), right.Fragments().cend(), std::next( m_fragments.begin(), left.Fragments().size() ) );
+		const auto it = std::copy( left.Fragments().cbegin(), left.Fragments().cend(), m_fragments.begin() );
+		std::copy( right.Fragments().cbegin(), right.Fragments().cend(), it );
 	}
 
-	operator std::basic_string<Char_T>() const
+	operator std::basic_string<Char_t>() const
 	{
-		std::stringstream ss;
-		std::copy( m_fragments.cbegin(), m_fragments.cend(), std::ostream_iterator<const Char_T*, Char_T>( ss ) );
-		return ss.str();
+		auto out = std::basic_string<Char_t>{};
+		out.reserve(length());
+		out = std::accumulate(m_fragments.cbegin(), m_fragments.cend(), std::move(out), [](auto&& curr, auto&& next) {
+			return curr += next;
+			});
+		return out;
 	}
 
-	const std::array<const Char_T*, FRAGMENT_COUNT>& Fragments() const { return m_fragments; }
+	const Array_t& Fragments() const { return m_fragments; }
+
+	size_t length() const
+	{
+		return std::accumulate(m_fragments.begin(), m_fragments.end(), size_t{}, [](auto&& len, auto&& fragment) {
+			return len += m_fragments.length();
+			});
+	}
 
 private:
-	std::array<const Char_T*, FRAGMENT_COUNT > m_fragments;
+	Array_t m_fragments;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -57,7 +72,7 @@ using FragmentWString = BasicFragmentString<wchar_t>;
 ///////////////////////////////////////////////////////////////////////////////
 
 template<typename Char_T, size_t LEFT_FRAG_COUNT>
-BasicFragmentString<Char_T, LEFT_FRAG_COUNT + 1> operator+( const BasicFragmentString<Char_T, LEFT_FRAG_COUNT>& left, const Char_T* right )
+BasicFragmentString<Char_T, LEFT_FRAG_COUNT + 1> operator+(const BasicFragmentString<Char_T, LEFT_FRAG_COUNT>& left, const Char_T* right )
 {
 	return BasicFragmentString<Char_T, LEFT_FRAG_COUNT + 1>( left, BasicFragmentString<Char_T>( right ) );
 }
@@ -75,7 +90,7 @@ BasicFragmentString<Char_T, LEFT_FRAG_COUNT + RIGHT_FRAG_COUNT> operator+( const
 template<typename Char_T, size_t FRAGMENT_COUNT>
 std::basic_ostream<Char_T>& operator<<( std::basic_ostream<Char_T>& os, const BasicFragmentString<Char_T, FRAGMENT_COUNT>& str )
 {
-	for ( const Char_T* fragment : str.Fragments() )
+	for ( const auto& fragment : str.Fragments() )
 		os << fragment;
 
 	return os;
