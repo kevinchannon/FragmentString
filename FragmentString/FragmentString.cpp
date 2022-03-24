@@ -9,12 +9,28 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
+template<typename Char_T>
+size_t string_length(const Char_T* psz)
+{
+	if constexpr (std::is_same_v<Char_T, char>) {
+		return std::strlen(psz);
+	}
+	else if constexpr (std::is_same_v<Char_T, wchar_t>) {
+		return std::wcslen(psz);
+	}
+	else {
+		static_assert(std::bool_constant<std::is_same_v<Char_T, char>>::value, "Invalid char type");
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 template<typename Char_T, size_t FRAGMENT_COUNT = 1>
 class BasicFragmentString
 {
 public:
 	using Char_t = Char_T;
-	using Str_t = std::basic_string_view<Char_t>;
+	using Str_t = const Char_t*; //std::basic_string_view<Char_t>;
 	using Array_t = std::array<Str_t, FRAGMENT_COUNT>;
 	using This_t = BasicFragmentString<Char_t, FRAGMENT_COUNT>;
 
@@ -23,16 +39,16 @@ public:
 	{
 	}
 
+	template<size_t STR_LEN>
+	BasicFragmentString(const Char_t psz[STR_LEN])
+		: m_fragments(psz)
+	{
+	}
+
 	BasicFragmentString( const This_t& ) = default;
 	BasicFragmentString( This_t&& ) = default;
 	This_t& operator=( const This_t& ) = default;
 	This_t& operator=( This_t&& ) = default;
-
-	template<size_t STR_LEN>
-	BasicFragmentString( const Char_t psz[STR_LEN] )
-		: m_fragments( psz )
-	{
-	}
 
 	template<size_t LEFT_FRAG_COUNT, size_t RIGHT_FRAG_COUNT>
 	BasicFragmentString( const BasicFragmentString<Char_t, LEFT_FRAG_COUNT>& left, const BasicFragmentString<Char_t, RIGHT_FRAG_COUNT>& right )
@@ -56,7 +72,7 @@ public:
 	size_t length() const
 	{
 		return std::accumulate(m_fragments.begin(), m_fragments.end(), size_t{}, [](auto&& len, auto&& fragment) {
-			return len += m_fragments.length();
+			return len += string_length(fragment);
 			});
 	}
 
@@ -71,10 +87,18 @@ using FragmentWString = BasicFragmentString<wchar_t>;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-template<typename Char_T, size_t LEFT_FRAG_COUNT>
-BasicFragmentString<Char_T, LEFT_FRAG_COUNT + 1> operator+(const BasicFragmentString<Char_T, LEFT_FRAG_COUNT>& left, const Char_T* right )
+template<typename Char_T, size_t LEFT_FRAG_COUNT, size_t STR_LEN>
+BasicFragmentString<Char_T, LEFT_FRAG_COUNT + 1> operator+(const BasicFragmentString<Char_T, LEFT_FRAG_COUNT>& left, const Char_T right[STR_LEN])
 {
-	return BasicFragmentString<Char_T, LEFT_FRAG_COUNT + 1>( left, BasicFragmentString<Char_T>( right ) );
+	return BasicFragmentString<Char_T, LEFT_FRAG_COUNT + 1>(left, BasicFragmentString<Char_T>(right));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+template<typename Char_T, size_t LEFT_FRAG_COUNT>
+BasicFragmentString<Char_T, LEFT_FRAG_COUNT + 1> operator+(const BasicFragmentString<Char_T, LEFT_FRAG_COUNT>& left, const Char_T* right)
+{
+	return BasicFragmentString<Char_T, LEFT_FRAG_COUNT + 1>(left, BasicFragmentString<Char_T>(right));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -116,7 +140,6 @@ const char* DangerString( const std::string& str )
 
 int main()
 {
-
 	auto str = FragmentString( "This is a test string" );
 	std::cout << str << std::endl;
 
@@ -129,9 +152,12 @@ int main()
 	auto str4 = FragmentString( "The string function returns: " ) + GetString();
 	std::cout << str4 << std::endl;
 
+	const auto s = std::string(str4);
+	std::cout << "As a std::string? " << s << std::endl;
+
 	auto str5 = FragmentString( "What about this danger? " );
-	auto s = std::string( "BOO!" );
-	auto dangerStr = str5 + DangerString( s );
+	auto s1 = std::string( "BOO!" );
+	auto dangerStr = str5 + DangerString( s1 );
 
 	std::cout << dangerStr << std::endl;
 
