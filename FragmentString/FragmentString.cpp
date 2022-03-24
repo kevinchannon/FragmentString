@@ -34,13 +34,13 @@ public:
 	using Array_t = std::array<Str_t, FRAGMENT_COUNT>;
 	using This_t = BasicFragmentString<Char_t, FRAGMENT_COUNT>;
 
-	BasicFragmentString( Str_t str )
+	constexpr BasicFragmentString( Str_t str )
 		: m_fragments{ str }
 	{
 	}
 
 	template<size_t STR_LEN>
-	BasicFragmentString(const Char_t psz[STR_LEN])
+	constexpr BasicFragmentString(const Char_t psz[STR_LEN])
 		: m_fragments(psz)
 	{
 	}
@@ -140,6 +140,37 @@ const char* DangerString( const std::string& str )
 
 int main()
 {
+	// A motivating example
+	// You often see this done with std::strings, which is doing lots of heap allocs.
+	// The code below does zero heap allocs (except for in the cout itself).
+	std::cout << "================================\n\n";
+
+	constexpr auto base_filepath = FragmentString{ "/var/log/" };
+	
+	const auto component_1_logs = base_filepath + "component1/";
+	const auto component_2_logs = base_filepath + "component2/";
+	
+	constexpr auto warning_logs_dir = "warning/";
+	constexpr auto info_logs_dir = "info/";
+
+	constexpr auto log_filename = "logs.txt";
+
+	const auto comp_1_warning_log_dir = component_1_logs + warning_logs_dir + log_filename;
+	const auto comp_1_info_log_dir = component_1_logs + info_logs_dir + log_filename;
+	const auto comp_2_warning_log_dir = component_2_logs + warning_logs_dir + log_filename;
+	const auto comp_2_info_log_dir = component_2_logs + info_logs_dir + log_filename;
+
+	std::cout << "Comp 1 warnings in: " << comp_1_warning_log_dir << std::endl;
+	std::cout << "Comp 1 info in:     " << comp_1_info_log_dir << std::endl;
+	std::cout << "Comp 2 warnings in: " << comp_2_warning_log_dir << std::endl;
+	std::cout << "Comp 1 info in:     " << comp_2_info_log_dir << std::endl;
+
+	std::cout << "\n================================\n\n";
+
+	//
+	// Other rnadom examples.
+	//
+
 	auto str = FragmentString( "This is a test string" );
 	std::cout << str << std::endl;
 
